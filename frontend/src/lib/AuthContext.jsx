@@ -1,7 +1,6 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { mockUsers } from './mockData';
-// Mock credentials for demo
-export const mockCredentials = [
+const mockCredentials = [
     {
         username: 'alice',
         password: 'student123',

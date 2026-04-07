@@ -34,7 +34,7 @@ export function Login() {
         }
     };
     const handleGoogleLogin = (role) => {
-        loginWithGoogle(role);
+      loginWithGoogle(role);
         navigate(from, {
             replace: true,
         });
