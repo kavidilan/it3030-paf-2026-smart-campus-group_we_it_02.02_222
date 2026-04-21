@@ -9,11 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserDTO {
-    private String id;
-    private String username;
-    private String email;
-    private String role;
+public class UpdateProfileRequest {
     private String displayName;
     private String avatarUrl;
 }

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.client.RestClientResponseException;
 import com.smartcampus.backend.dto.GoogleAuthRequest;
 import com.smartcampus.backend.dto.LoginRequest;
 import com.smartcampus.backend.dto.LoginResponse;
+import com.smartcampus.backend.dto.UpdateProfileRequest;
 import com.smartcampus.backend.dto.UserDTO;
 import com.smartcampus.backend.model.User;
 import com.smartcampus.backend.repository.UserRepository;
@@ -53,6 +55,7 @@ public class AuthController {
                     .email(user.getEmail())
                     .role(user.getRole())
                     .displayName(user.getDisplayName())
+                    .avatarUrl(user.getAvatarUrl())
                     .build();
 
             return ResponseEntity.ok(LoginResponse.builder()
@@ -97,6 +100,60 @@ public class AuthController {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .build());
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserDTO> updateMe(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody UpdateProfileRequest request) {
+
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String token = authorization.substring("Bearer ".length()).trim();
+        if (!token.startsWith("jwt-token-")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String userId = token.substring("jwt-token-".length()).trim();
+        if (userId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userOpt.get();
+        Instant now = Instant.now();
+
+        if (request != null) {
+            String displayName = request.getDisplayName();
+            if (displayName != null && !displayName.isBlank()) {
+                user.setDisplayName(displayName.trim());
+            }
+
+            String avatarUrl = request.getAvatarUrl();
+            if (avatarUrl != null) {
+                String trimmed = avatarUrl.trim();
+                user.setAvatarUrl(trimmed.isEmpty() ? null : trimmed);
+            }
+        }
+
+        user.setUpdatedAt(now);
+        user = userRepository.save(user);
+
+        return ResponseEntity.ok(UserDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
                 .build());
     }
 
@@ -137,6 +194,7 @@ public class AuthController {
 
             String email = tokenInfo == null ? null : (String) tokenInfo.get("email");
             String name = tokenInfo == null ? null : (String) tokenInfo.get("name");
+            String picture = tokenInfo == null ? null : (String) tokenInfo.get("picture");
 
             if (email == null || email.isBlank()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(LoginResponse.builder()
@@ -153,6 +211,7 @@ public class AuthController {
                             .username(username)
                             .email(email)
                             .displayName((name == null || name.isBlank()) ? email : name)
+                        .avatarUrl((picture == null || picture.isBlank()) ? null : picture)
                             .role("USER")
                             .passwordHash("")
                             .createdAt(now)
@@ -161,6 +220,9 @@ public class AuthController {
 
             // If user existed, refresh display name / timestamps
             user.setDisplayName((name == null || name.isBlank()) ? user.getDisplayName() : name);
+            if (picture != null && !picture.isBlank()) {
+                user.setAvatarUrl(picture);
+            }
             user.setUpdatedAt(now);
             user = userRepository.save(user);
 
@@ -170,6 +232,7 @@ public class AuthController {
                     .email(user.getEmail())
                     .role(user.getRole())
                     .displayName(user.getDisplayName())
+                    .avatarUrl(user.getAvatarUrl())
                     .build();
 
             return ResponseEntity.ok(LoginResponse.builder()

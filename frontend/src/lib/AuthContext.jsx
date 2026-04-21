@@ -2,13 +2,36 @@ import React, { useEffect, useState, createContext, useContext } from 'react';
 
 const TOKEN_KEY = 'uniops_token';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+const AVATAR_CACHE_PREFIX = 'uniops_avatar_';
+
+const getCachedAvatar = (userId) => {
+    if (!userId) {
+        return '';
+    }
+    return localStorage.getItem(`${AVATAR_CACHE_PREFIX}${userId}`) || '';
+};
+
+const setCachedAvatar = (userId, avatarUrl) => {
+    if (!userId) {
+        return;
+    }
+    const key = `${AVATAR_CACHE_PREFIX}${userId}`;
+    if (avatarUrl) {
+        localStorage.setItem(key, avatarUrl);
+    }
+    else {
+        localStorage.removeItem(key);
+    }
+};
 
 const normalizeUser = (u) => ({
     id: u.id,
+    username: u.username,
+    displayName: u.displayName,
     name: u.displayName || u.username,
     email: u.email,
     role: u.role,
-    avatar: u.avatarUrl,
+    avatar: u.avatarUrl || getCachedAvatar(u.id),
 });
 
 const authFetch = async (path, options = {}) => {
@@ -55,7 +78,9 @@ export const AuthProvider = ({ children }) => {
             }
             try {
                 const me = await authFetch('/api/auth/me', { method: 'GET' });
-                setUser(normalizeUser(me));
+                const normalized = normalizeUser(me);
+                setCachedAvatar(normalized.id, normalized.avatar);
+                setUser(normalized);
             }
             catch {
                 localStorage.removeItem(TOKEN_KEY);
@@ -82,7 +107,9 @@ export const AuthProvider = ({ children }) => {
             }
 
             localStorage.setItem(TOKEN_KEY, data.token);
-            setUser(normalizeUser(data.user));
+            const normalized = normalizeUser(data.user);
+            setCachedAvatar(normalized.id, normalized.avatar);
+            setUser(normalized);
             return { success: true };
         }
         catch (e) {
@@ -104,7 +131,9 @@ export const AuthProvider = ({ children }) => {
             }
 
             localStorage.setItem(TOKEN_KEY, data.token);
-            setUser(normalizeUser(data.user));
+            const normalized = normalizeUser(data.user);
+            setCachedAvatar(normalized.id, normalized.avatar);
+            setUser(normalized);
             return { success: true };
         }
         catch (e) {
@@ -115,12 +144,29 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         localStorage.removeItem(TOKEN_KEY);
     };
+
+    const updateProfile = async ({ displayName, avatarUrl }) => {
+        try {
+            const updated = await authFetch('/api/auth/me', {
+                method: 'PUT',
+                body: JSON.stringify({ displayName, avatarUrl }),
+            });
+            const normalized = normalizeUser(updated);
+            setCachedAvatar(normalized.id, normalized.avatar);
+            setUser(normalized);
+            return { success: true };
+        }
+        catch (e) {
+            return { success: false, error: e?.message || 'Profile update failed.' };
+        }
+    };
     return (<AuthContext.Provider value={{
             user,
             isAuthenticated: !!user,
             loginWithCredentials,
             loginWithGoogle,
             logout,
+            updateProfile,
             isLoading,
         }}>
       {children}
