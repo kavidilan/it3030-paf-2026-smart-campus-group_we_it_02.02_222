@@ -9,7 +9,6 @@ import type {
 import {
   mockResources,
   mockBookings,
-  mockTickets,
   mockComments,
   mockNotifications,
 } from './mockData.ts'
@@ -18,10 +17,41 @@ import {
 const delay = (ms: number = 400) =>
   new Promise((resolve) => setTimeout(resolve, ms))
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
+const TOKEN_KEY = 'uniops_token'
+
+const authHeaders = () => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+const apiRequest = async <T>(path: string, options: RequestInit = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      ...(options.headers || {}),
+    },
+  })
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const data = await response.json()
+      message = data?.message || data?.error || message
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message)
+  }
+
+  return response.json() as Promise<T>
+}
+
 // In-memory state for the mock API
 let resources = [...mockResources]
 let bookings = [...mockBookings]
-let tickets = [...mockTickets]
 let comments = [...mockComments]
 let notifications = [...mockNotifications]
 
@@ -163,43 +193,28 @@ export const getTickets = async (filters?: {
   assignedTo?: string
 }) => {
   await delay()
-  let result = [...tickets]
+  const params = new URLSearchParams()
+  if (filters?.userId) params.set('userId', filters.userId)
+  if (filters?.status) params.set('status', filters.status)
+  if (filters?.assignedTo) params.set('assignedTo', filters.assignedTo)
 
-  if (filters) {
-    if (filters.userId)
-      result = result.filter((t) => t.userId === filters.userId)
-    if (filters.status)
-      result = result.filter((t) => t.status === filters.status)
-    if (filters.assignedTo)
-      result = result.filter((t) => t.assignedTo === filters.assignedTo)
-  }
-
-  return result.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
+  const path = params.toString() ? `/api/tickets?${params.toString()}` : '/api/tickets'
+  return apiRequest<Ticket[]>(path)
 }
 
 export const getTicketById = async (id: string) => {
   await delay()
-  const ticket = tickets.find((t) => t.id === id)
-  if (!ticket) throw new Error('Ticket not found')
-  return ticket
+  return apiRequest<Ticket>(`/api/tickets/${id}`)
 }
 
 export const createTicket = async (
   ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
 ) => {
   await delay()
-  const newTicket: Ticket = {
-    ...ticketData,
-    id: `t${Date.now()}`,
-    status: 'OPEN',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-
-  tickets.push(newTicket)
-  return newTicket
+  return apiRequest<Ticket>('/api/tickets', {
+    method: 'POST',
+    body: JSON.stringify(ticketData),
+  })
 }
 
 export const updateTicketStatus = async (
@@ -208,31 +223,24 @@ export const updateTicketStatus = async (
   resolutionNotes?: string,
 ) => {
   await delay()
-  const index = tickets.findIndex((t) => t.id === id)
-  if (index === -1) throw new Error('Ticket not found')
-
-  tickets[index] = {
-    ...tickets[index],
-    status,
-    resolutionNotes: resolutionNotes || tickets[index].resolutionNotes,
-    updatedAt: new Date().toISOString(),
-  }
-  return tickets[index]
+  return apiRequest<Ticket>(`/api/tickets/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      status,
+      resolutionNotes: resolutionNotes || '',
+    }),
+  })
 }
 
 export const assignTicket = async (id: string, assignedTo: string) => {
   await delay()
-  const index = tickets.findIndex((t) => t.id === id)
-  if (index === -1) throw new Error('Ticket not found')
-
-  tickets[index] = {
-    ...tickets[index],
-    assignedTo,
-    status:
-      tickets[index].status === 'OPEN' ? 'IN_PROGRESS' : tickets[index].status,
-    updatedAt: new Date().toISOString(),
-  }
-  return tickets[index]
+  return apiRequest<Ticket>(`/api/tickets/${id}/assign`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      assignedTo,
+      status: 'IN_PROGRESS',
+    }),
+  })
 }
 
 // --- Comments ---

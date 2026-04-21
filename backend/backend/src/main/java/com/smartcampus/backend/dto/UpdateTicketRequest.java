@@ -1,5 +1,7 @@
 package com.smartcampus.backend.dto;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,11 +11,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserDTO {
-    private String id;
-    private String username;
-    private String email;
-    private String role;
-    private String displayName;
-    private String avatarUrl;
+public class UpdateTicketRequest {
+    private String status;
+    private String resolutionNotes;
+    private String assignedTo;
+    private List<String> images;
 }
