@@ -3,6 +3,43 @@ import React, { useEffect, useState, createContext, useContext } from 'react';
 const TOKEN_KEY = 'uniops_token';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
 
+const AVATAR_CACHE_PREFIX = 'uniops_avatar_url:';
+
+const getAvatarCacheKey = (u) => {
+    const identifier = u?.id || u?._id || u?.username || u?.email;
+    if (!identifier)
+        return null;
+    return `${AVATAR_CACHE_PREFIX}${identifier}`;
+};
+
+const getCachedAvatar = (u) => {
+    try {
+        const key = getAvatarCacheKey(u);
+        if (!key)
+            return null;
+        return localStorage.getItem(key);
+    }
+    catch {
+        return null;
+    }
+};
+
+const setCachedAvatar = (u, avatarUrl) => {
+    try {
+        const key = getAvatarCacheKey(u);
+        if (!key)
+            return;
+        if (!avatarUrl) {
+            localStorage.removeItem(key);
+            return;
+        }
+        localStorage.setItem(key, avatarUrl);
+    }
+    catch {
+        // ignore
+    }
+};
+
 const normalizeUser = (u) => ({
     id: u.id,
     username: u.username,
@@ -56,7 +93,7 @@ export const AuthProvider = ({ children }) => {
                 return;
             }
             try {
-                const me = await authFetch('/api/auth/me', { method: 'GET' });
+                const me = await authFetch('/api/v1/auth/me', { method: 'GET' });
                 setUser(normalizeUser(me));
             }
             catch {
@@ -71,7 +108,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
     const loginWithCredentials = async (username, password) => {
         try {
-            const data = await authFetch('/auth/login', {
+            const data = await authFetch('/api/v1/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({ username, password }),
             });
@@ -95,7 +132,7 @@ export const AuthProvider = ({ children }) => {
     };
     const loginWithGoogle = async (idToken) => {
         try {
-            const data = await authFetch('/auth/google', {
+            const data = await authFetch('/api/v1/auth/google', {
                 method: 'POST',
                 body: JSON.stringify({ idToken }),
             });
@@ -124,7 +161,7 @@ export const AuthProvider = ({ children }) => {
 
     const updateProfile = async ({ displayName, avatarUrl }) => {
         try {
-            const updated = await authFetch('/api/auth/me', {
+            const updated = await authFetch('/api/v1/auth/me', {
                 method: 'PUT',
                 body: JSON.stringify({ displayName, avatarUrl }),
             });

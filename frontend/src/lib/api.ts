@@ -9,16 +9,21 @@ import type {
   TicketStatus,
 } from './types'
 
+const TOKEN_KEY = 'uniops_token'
+
+const API_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8081'
+
 // Create Axios instance with base URL
 const apiClient: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:8081/api/v1',
+  baseURL: API_BASE_URL,
   timeout: 10000,
 })
 
 // Request interceptor to attach JWT token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem(TOKEN_KEY)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -35,7 +40,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or unauthorized
-      localStorage.removeItem('token')
+      localStorage.removeItem(TOKEN_KEY)
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -57,7 +62,7 @@ export const getResources = async (filters?: {
     if (filters?.minCapacity) params.append('minCapacity', String(filters.minCapacity))
     if (filters?.location) params.append('location', filters.location)
 
-    const response = await apiClient.get('/resources', { params })
+    const response = await apiClient.get('/api/v1/resources', { params })
     return response.data
   } catch (error) {
     console.error('Error fetching resources:', error)
@@ -67,7 +72,7 @@ export const getResources = async (filters?: {
 
 export const getResourceById = async (id: string) => {
   try {
-    const response = await apiClient.get(`/resources/${id}`)
+    const response = await apiClient.get(`/api/v1/resources/${id}`)
     return response.data
   } catch (error) {
     console.error('Error fetching resource:', error)
@@ -77,7 +82,7 @@ export const getResourceById = async (id: string) => {
 
 export const createResource = async (resourceData: any) => {
   try {
-    const response = await apiClient.post('/resources', resourceData)
+    const response = await apiClient.post('/api/v1/resources', resourceData)
     return response.data
   } catch (error) {
     console.error('Error creating resource:', error)
@@ -87,7 +92,7 @@ export const createResource = async (resourceData: any) => {
 
 export const updateResource = async (id: string, resourceData: any) => {
   try {
-    const response = await apiClient.put(`/resources/${id}`, resourceData)
+    const response = await apiClient.put(`/api/v1/resources/${id}`, resourceData)
     return response.data
   } catch (error) {
     console.error('Error updating resource:', error)
@@ -97,7 +102,7 @@ export const updateResource = async (id: string, resourceData: any) => {
 
 export const deleteResource = async (id: string) => {
   try {
-    const response = await apiClient.delete(`/resources/${id}`)
+    const response = await apiClient.delete(`/api/v1/resources/${id}`)
     return response.data
   } catch (error) {
     console.error('Error deleting resource:', error)
@@ -188,7 +193,7 @@ export const getTickets = async (filters?: {
     if (filters?.status) params.append('status', filters.status)
     if (filters?.assignedTo) params.append('assignedTo', filters.assignedTo)
 
-    const response = await apiClient.get('/tickets', { params })
+    const response = await apiClient.get('/api/tickets', { params })
     return response.data
   } catch (error) {
     console.error('Error fetching tickets:', error)
@@ -198,7 +203,7 @@ export const getTickets = async (filters?: {
 
 export const getTicketById = async (id: string) => {
   try {
-    const response = await apiClient.get(`/tickets/${id}`)
+    const response = await apiClient.get(`/api/tickets/${id}`)
     return response.data
   } catch (error) {
     console.error('Error fetching ticket:', error)
@@ -210,7 +215,7 @@ export const createTicket = async (
   ticketData: Omit<Ticket, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
 ) => {
   try {
-    const response = await apiClient.post('/tickets', ticketData)
+    const response = await apiClient.post('/api/tickets', ticketData)
     return response.data
   } catch (error) {
     console.error('Error creating ticket:', error)
@@ -224,7 +229,7 @@ export const updateTicketStatus = async (
   resolutionNotes?: string,
 ) => {
   try {
-    const response = await apiClient.put(`/tickets/${id}/status`, {
+    const response = await apiClient.put(`/api/tickets/${id}`, {
       status,
       resolutionNotes,
     })
@@ -237,12 +242,26 @@ export const updateTicketStatus = async (
 
 export const assignTicket = async (id: string, assignedTo: string) => {
   try {
-    const response = await apiClient.put(`/tickets/${id}/assign`, {
+    const response = await apiClient.put(`/api/tickets/${id}/assign`, {
       assignedTo,
     })
     return response.data
   } catch (error) {
     console.error('Error assigning ticket:', error)
+    throw error
+  }
+}
+
+// --- Users ---
+export const getUsers = async (filters?: { role?: string }) => {
+  try {
+    const params = new URLSearchParams()
+    if (filters?.role) params.append('role', filters.role)
+
+    const response = await apiClient.get('/api/users', { params })
+    return response.data
+  } catch (error) {
+    console.error('Error fetching users:', error)
     throw error
   }
 }
