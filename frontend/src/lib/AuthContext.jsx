@@ -2,30 +2,6 @@ import React, { useEffect, useState, createContext, useContext } from 'react';
 
 const TOKEN_KEY = 'uniops_token';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
-const AVATAR_CACHE_PREFIX = 'uniops_avatar_';
-
-const getAvatarCacheKeys = (u) => [u?.id, u?.username, u?.email].filter(Boolean).map((value) => `${AVATAR_CACHE_PREFIX}${value}`);
-
-const getCachedAvatar = (u) => {
-    for (const key of getAvatarCacheKeys(u)) {
-        const cached = localStorage.getItem(key);
-        if (cached) {
-            return cached;
-        }
-    }
-    return '';
-};
-
-const setCachedAvatar = (u, avatarUrl) => {
-    if (!u) {
-        return;
-    }
-    for (const key of getAvatarCacheKeys(u)) {
-        if (avatarUrl) {
-            localStorage.setItem(key, avatarUrl);
-        }
-    }
-};
 
 const normalizeUser = (u) => ({
     id: u.id,
@@ -81,9 +57,7 @@ export const AuthProvider = ({ children }) => {
             }
             try {
                 const me = await authFetch('/api/auth/me', { method: 'GET' });
-                const normalized = normalizeUser(me);
-                setCachedAvatar(normalized, normalized.avatar);
-                setUser(normalized);
+                setUser(normalizeUser(me));
             }
             catch {
                 localStorage.removeItem(TOKEN_KEY);
@@ -97,7 +71,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
     const loginWithCredentials = async (username, password) => {
         try {
-            const data = await authFetch('/api/auth/login', {
+            const data = await authFetch('/auth/login', {
                 method: 'POST',
                 body: JSON.stringify({ username, password }),
             });
@@ -121,7 +95,7 @@ export const AuthProvider = ({ children }) => {
     };
     const loginWithGoogle = async (idToken) => {
         try {
-            const data = await authFetch('/api/auth/google', {
+            const data = await authFetch('/auth/google', {
                 method: 'POST',
                 body: JSON.stringify({ idToken }),
             });
